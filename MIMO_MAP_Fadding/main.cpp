@@ -25,6 +25,10 @@ int main(){
             Modulation(Source, Modu);
             FadingChannel(H);
             Receiver(Modu, H, Constell, Source, Decode);
+            
+            /* process bar, one # means 5% */
+            if(loop*20 % NLoop == 0) cout<<"#"<<flush;
+            if(loop == NLoop) cout<<endl;
         }
         BER = static_cast<double>(BER_TOTAL/(NLoop*Nt));
         cout<<EbN0dB<<setw(20)<<BER<<endl;

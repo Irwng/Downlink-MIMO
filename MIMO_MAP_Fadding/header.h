@@ -39,19 +39,19 @@ typedef complex<double> ComplexD;
  * basic constant model parameters
  **********************************/
 
-constexpr int Nt = 1;                             /* number of antennas at transmitter */
-constexpr int Nr = 1;                             /* number of antennas at recevier */
+constexpr int Nt = 2;                             /* number of antennas at transmitter */
+constexpr int Nr = 2;                             /* number of antennas at recevier */
 constexpr int Mod = 2;				              /* BPSK modulation order */
 constexpr int Mpoint = pow(Mod, Nt);
 constexpr double PI = 3.141592653589793;
-constexpr double power = 4;
+constexpr double power = 1;
     
-constexpr int minEbN0dB = 0;
+constexpr int minEbN0dB = 21;
 #ifdef DebugMode
     constexpr long NLoop = pow(10, 0);            /* number of simulation loops  */
     constexpr int maxEbN0dB = minEbN0dB;
 #else
-    constexpr long NLoop = pow(10, 6);            /* number of simulation loops  */
+    constexpr long NLoop = pow(10, 8);            /* number of simulation loops  */
     constexpr long maxEbN0dB = 30;           
 #endif
 constexpr int step = 3;
@@ -98,6 +98,8 @@ extern fstream outfile;
  ***************************************/
 void NormalIO();
 void InitMapMatrix();
+
+
 /**************************************
  * description: add AAWGN noise
  * date: 2020/8/20

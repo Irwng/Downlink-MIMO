@@ -6,6 +6,8 @@ Moduulaiton: BPSK
 User number(U): 6
 Antenna: Nt= U= 2, 2 receiver antenna per user
 Beamforming: ZF/MMSE
+Note: 2021/4/02- realize the OSIC algorithm getting better performance
+      2021/4/17- modify the OSIC algorithm saving half time
 ***********************************************************/
 #include "header.h"
 
@@ -20,7 +22,8 @@ int main(int argc, char* argv[]){
         cout<<"2: MMSE"<<endl;
         cout<<"3: OSIC-ZF-SINR"<<endl;
         cout<<"4: OSIC-MMSE-SINR"<<endl;
-        cout<<"3: OSIC-ZF-SNR"<<endl;
+        cout<<"5: OSIC-ZF-SNR"<<endl;
+        cout<<"6: OSIC-MMSE-SNR"<<endl;
 
         if(Nr!=Nt) cout<<"Dimension Error: U*Nr!=Nt"<<endl;
         return 0;
@@ -30,16 +33,23 @@ int main(int argc, char* argv[]){
     #ifndef DebugMode
         Initialize(argv);
     #endif
-    for(int EbN0dB = minEbN0dB; EbN0dB <=  maxEbN0dB; EbN0dB=EbN0dB+step){
+    for(int EbN0dB = MinEbN0dB; EbN0dB <= MaxEbN0dB; EbN0dB=EbN0dB+Step){
         ChannelInitialize(EbN0dB);
-        for(int loop = 0; loop < NLoop; loop++){
+        for(int loop = 1; loop <= NLoop; loop++){
             BitSource(Source);
             Modulation(Source, Modu);
             FadingChannel(H);
-            if(*argv[1] == '1'|| *argv[1] == '2')
+            if(*argv[1] == '1'|| *argv[1] == '2'){
                 Receiver(Modu, SymAfterFC, H, V, Source, Decode, argv);
-            else
+            }
+            else{
                 Receiver_OSIC(Modu, SymAfterFC, H, Source, Decode, argv);
+                // Receiver_OSIC_V2(Modu, SymAfterFC, H, V, Source, Decode, argv);
+            }
+           
+            /* process bar, one # means 5% */
+            if(loop*20 % NLoop == 0) cout<<"#"<<flush;
+            if(loop == NLoop) cout<<endl;
         }
         BER = static_cast<double>(BER_TOTAL/NUM);
         cout<<EbN0dB<<setw(20)<<BER<<endl;

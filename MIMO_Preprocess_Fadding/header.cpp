@@ -52,6 +52,11 @@ void Initialize(char* argv[]){
             cout<<"OSIC-ZF-SNR"<<endl;
             outfile<<"OSIC-ZF-SNR"<<endl;
             break;
+        
+        case '6':
+            cout<<"OSIC-MMSE-SNR"<<endl;
+            outfile<<"OSIC-MMSE-SNR"<<endl;
+            break;
 
         default:
             cout<<"Invaild input!"<<endl;
@@ -61,18 +66,14 @@ void Initialize(char* argv[]){
     cout<<"FaddingChannel"<<endl;
     outfile<<"FaddingChannel"<<endl;
 
-    #ifdef BPSK
-        cout<<"BPSK"<<endl;   
-        outfile<<"BPSK"<<endl; 
-    #endif
-    #ifdef QPSK 
-        cout<<"QPSK"<<endl;   
-        outfile<<"QPSK"<<endl;			            
-    #endif
-    #ifdef QAM16
-        cout<<"QAM16"<<endl;   
-        outfile<<"QAM16"<<endl;			            
-    #endif
+#ifdef BPSK
+    cout<<"BPSK"<<endl;   
+    outfile<<"BPSK"<<endl; 
+#endif
+#ifdef QPSK 
+    cout<<"QPSK"<<endl;   
+    outfile<<"QPSK"<<endl;			            
+#endif
 
     cout<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"NLoop: "<<NLoop<<endl;   
     outfile<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"NLoop: "<<NLoop<<endl; 
@@ -87,7 +88,7 @@ void ChannelInitialize(int ebN0dB){
     /* the total power of transmitter is fixed */
     double ebN0 = pow(10,(double)ebN0dB/10);
     double snr = BitperSymbol * ebN0;
-    double N0 = Nt / snr;
+    double N0 = Nt * power / snr;
     N_Var = N0/2;
     
     for(int nt = 0; nt < Nt; ++nt){
@@ -95,10 +96,12 @@ void ChannelInitialize(int ebN0dB){
     }
     
     BER_TOTAL = 0;
-    #ifdef DebugMode
-        cout<<"N_Var: "<<N_Var<<endl;
-        cout<<"WeightedIdentityMatrix"<<endl<<WeightedIdentityMatrix<<endl;
-    #endif
+
+#ifdef DebugMode
+    cout<<"N_Var: "<<N_Var<<endl;
+    cout<<"WeightedIdentityMatrix"<<endl<<WeightedIdentityMatrix<<endl;
+#endif
+
 }
 
 
@@ -108,45 +111,34 @@ void BitSource(SourceMatrix& source){
     for(int nt = 0; nt < Nt; ++nt){
         source(nt)= rand()%2;
     }
-    #ifdef DebugMode
-        cout<<"source: "<<endl<<source<<endl;
-    #endif
+#ifdef DebugMode
+    cout<<"source: "<<endl<<source<<endl;
+#endif
+
 }
 
 
 void Modulation(SourceMatrix& source, ModuMatrix& modu){
 
-    #ifdef BPSK
-        /* BPSK: 0->-1, 1->1 */
-        for(int nt = 0; nt < Nt; ++nt){
-            modu(nt) = ComplexD(2 * source(nt) - 1, 0);
-        }
-        double sum = 0;
-        for(int nt = 0; nt < Nt; ++nt){
-            sum += pow(abs(modu(nt)), 2);
-        }
-        modu = sqrt(power/sum) * modu;
-    #endif
-    #ifdef QPSK
-        /* QPSK: 00->a+aj, 01->-a+aj, 11-> -a-aj, 10->a-aj */
-        /* QPSK: forward bits->1st antenna, next bits->2st antenna */
-        for(int nt = 0; nt < Nt; ++nt){
-            modu(nt) = ComplexD((1 - 2 * source(BitperSymbol * nt + 1)) * sqrt(0.5), (1 - 2 * source(BitperSymbol * nt)) * sqrt(0.5));
-        }
-    #endif
+#ifdef BPSK
+    /* BPSK: 0->-1, 1->1 */
+    for(int nt = 0; nt < Nt; ++nt){
+        modu(nt) = ComplexD(2 * source(nt) - 1, 0);
+    }
+#endif
 
-    #ifdef QAM16
-        /* 16QAM: 00->a+aj, 01->-a+aj, 11-> -a-aj, 10->a-aj */
-        /* QPSK: forward bits->1st antenna, next bits->2st antenna */
-        for(int nt = 0; nt < Nt; ++nt){
-            modu(nt) = ComplexD((1 - 2 * source(BitperSymbol * nt + 1)) * sqrt(0.5), (1 - 2 * source(BitperSymbol * nt)) * sqrt(0.5));
-        }
-    #endif
+#ifdef QPSK
+    /* QPSK: 00->a+aj, 01->-a+aj, 11-> -a-aj, 10->a-aj */
+    /* QPSK: forward bits->1st antenna, next bits->2st antenna */
+    for(int nt = 0; nt < Nt; ++nt){
+        modu(nt) = ComplexD((1 - 2 * source(BitperSymbol * nt + 1)) * sqrt(0.5), (1 - 2 * source(BitperSymbol * nt)) * sqrt(0.5));
+    }
+#endif
 
-    
-    #ifdef DebugMode
-       cout<<"modulation: "<<endl<<modu<<endl;
-    #endif  
+#ifdef DebugMode
+    cout<<"modulation: "<<endl<<modu<<endl;
+#endif  
+
 }
 
 
@@ -161,9 +153,11 @@ void FadingChannel(CSIMatrix& h){
                                 sqrt(0.5) * GG * sin(2*PI*B));
         }
     }
-    #ifdef DebugMode
-        cout<<"h"<<endl<<h<<endl;
-    #endif 
+
+#ifdef DebugMode
+    cout<<"h"<<endl<<h<<endl;
+#endif 
+
 }
 
 
@@ -209,29 +203,22 @@ void Receiver(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
     symAfterFC = v * symAfterFC;
 
     /* check the performance of the post processing */
-    #ifdef BPSK
-        for(int nr = 0; nr < Nr; ++nr){
-            decode(nr) = static_cast<int>(symAfterFC(nr).real() > 0);
-            BER_TOTAL += static_cast<double>(decode(nr) != source(nr));
-        }
-    #endif
-    #ifdef QPSK
-        for(int nr = 0; nr < Nr; ++nr){
-            decode(nr * BitperSymbol) = static_cast<int>(symAfterFC(nr).imag() < 0);
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
-            decode(nr * BitperSymbol + 1) = static_cast<int>(symAfterFC(nr).real() < 0);
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
-        }
-    #endif
+#ifdef BPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        decode(nr) = static_cast<int>(symAfterFC(nr).real() > 0);
+        BER_TOTAL += static_cast<double>(decode(nr) != source(nr));
+    }
+#endif
 
-    #ifdef QAM16
-        for(int nr = 0; nr < Nr; ++nr){
-            decode(nr * BitperSymbol) = static_cast<int>(symAfterFC(nr).imag() < 0);
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
-            decode(nr * BitperSymbol + 1) = static_cast<int>(symAfterFC(nr).real() < 0);
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
-        }
-    #endif
+#ifdef QPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        decode(nr * BitperSymbol) = static_cast<int>(symAfterFC(nr).imag() < 0);
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
+        decode(nr * BitperSymbol + 1) = static_cast<int>(symAfterFC(nr).real() < 0);
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
+    }
+#endif
+
 }
 
 void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC, 
@@ -247,6 +234,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
     
     bool index_array[Nt]; // index of the decoded signal
     for(auto& a: index_array) a = false;
+    
     for(int nt = 0; nt < Nt; ++nt){
         /* update the channel gain matrix */
         ComplexD* h_buff = new ComplexD[Nt*(Nt-nt)];
@@ -263,15 +251,15 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
         Matrix<ComplexD, Dynamic, Dynamic> h_temp;
         h_temp = Map<Matrix<ComplexD, Dynamic, Dynamic>>(h_buff, Nt, Nt-nt);                
         
-        #ifdef DebugMode
-            cout<<"nt: "<<nt<<endl;
-            cout<<"h_buff: "<<endl;
-            for(int k = 0; k < Nt*(Nt-nt); ++k){
-                cout<<h_buff[k]<<" ";
-            }
-            cout<<endl;
-            cout<<"h_temp:"<<endl<<h_temp<<endl;
-        #endif
+    #ifdef DebugMode
+        cout<<"nt: "<<nt<<endl;
+        cout<<"h_buff: "<<endl;
+        for(int k = 0; k < Nt*(Nt-nt); ++k){
+            cout<<h_buff[k]<<" ";
+        }
+        cout<<endl;
+        cout<<"h_temp:"<<endl<<h_temp<<endl;
+    #endif
         delete[] h_buff;
 
         /* calculate the h_temp's conjugate transpose matrix */
@@ -286,6 +274,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
             case '5':
                 break;
             case '4':
+            case '6':
                 for(int i = 0; i < Nt-nt; ++i) Denomiator_H(i, i) += ComplexD(N_Var, 0);
                 break;                    
             default:
@@ -324,6 +313,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
                 }
                 break;
             case '5':
+            case '6':
                 for(int nr = 0; nr < Nr-nt; ++nr){
                     denominator = N_Var * noisesum[nr];
                     SINR[nr] = 1 / denominator;
@@ -332,11 +322,11 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
             default:
                 break;
         }
-        #ifdef DebugMode
-            cout<<"SINR"<<endl;
-            for(auto b: SINR) cout<<b<<" ";
-            cout<<endl;
-        #endif
+    #ifdef DebugMode
+        cout<<"SINR"<<endl;
+        for(auto b: SINR) cout<<b<<" ";
+        cout<<endl;
+    #endif
 
         /* find the max SINR subchannel */
         int index_max = 0;
@@ -346,6 +336,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
 
         /* find the order in ture line*/
         /* initialize */
+        column = 0;
         for(int i = 0; i < Nt; ++i){
             if(index_array[i] == false){
                 column = i;
@@ -363,53 +354,191 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
         if(index_array[column] == true) cout<<"error!";
         index_array[column] = true;
 
-        #ifdef DebugMode
-            cout<<"index_max: "<<index_max<<endl;
-            cout<<"column: "<<column<<endl;
-            cout<<"index_array:"<<endl;
-            for(auto b: index_array) cout<<b<<" ";
-            cout<<endl;
-        #endif
+    #ifdef DebugMode
+        cout<<"index_max: "<<index_max<<endl;
+        cout<<"column: "<<column<<endl;
+        cout<<"index_array:"<<endl;
+        for(auto b: index_array) cout<<b<<" ";
+        cout<<endl;
+    #endif
 
         /* decode the signal on the max SINR subchannel in this loop */
         ComplexD x_temp(0,0);
         for(int nr = 0; nr < Nt; ++nr) x_temp += V_temp(index_max, nr) * symAfterFC(nr);
+        
         /* check the performance of the post processing */
-        #ifdef BPSK
-            decode(column) = static_cast<int>(x_temp.real() > 0);
-            x_temp = ComplexD(static_cast<double>(2*decode(column) - 1),0);
-        #endif
-        #ifdef QPSK
-            decode(column * BitperSymbol) = static_cast<int>(x_temp.imag() < 0);
-            decode(column * BitperSymbol + 1) = static_cast<int>(x_temp.real() < 0);
-            x_temp = ComplexD((1 - 2 * decode(column * BitperSymbol + 1)) * sqrt(0.5), (1 - 2 * decode(column * BitperSymbol)) * sqrt(0.5));
-
-        #endif
-        #ifdef QAM16
-            decode(column * BitperSymbol) = static_cast<int>(x_temp.imag() < 0);
-            decode(column * BitperSymbol + 1) = static_cast<int>(x_temp.real() < 0);
-        #endif
+    #ifdef BPSK
+        decode(column) = static_cast<int>(x_temp.real() > 0);
+        x_temp = ComplexD(static_cast<double>(2*decode(column) - 1),0);
+    #endif
+    
+    #ifdef QPSK
+        decode(column * BitperSymbol) = static_cast<int>(x_temp.imag() < 0);
+        decode(column * BitperSymbol + 1) = static_cast<int>(x_temp.real() < 0);
+        x_temp = ComplexD((1 - 2 * decode(column * BitperSymbol + 1)) * sqrt(0.5), (1 - 2 * decode(column * BitperSymbol)) * sqrt(0.5));
+    #endif
         
         /* cancell the interference */
-        for(int nr = 0; nr < Nt; ++nr) symAfterFC(nr) -= h_temp(nr, index_max) *sqrt(1.0/Nt) *x_temp;
+        for(int nr = 0; nr < Nr; ++nr) symAfterFC(nr) -= h_temp(nr, index_max) *x_temp;
     }
  
     /* check the performance of the post processing */
+#ifdef BPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        BER_TOTAL += static_cast<double>(decode(nr) != source(nr));
+    }
+#endif
+
+#ifdef QPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
+    }
+#endif
+}
+
+
+void Receiver_OSIC_V2(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC, 
+                      CSIMatrix& h, CSIMatrix& v, SourceMatrix& source, 
+                      DecodeMatrix& decode, char* argv[]){
+
+    /* AWGN */
+    SymAfterFCMatrix tmp;
+    for(int nr = 0; nr < Nr; ++nr){
+        tmp(nr) = AWGN(N_Var);
+    }
+    symAfterFC = h * modu + tmp;//  
+
+    CSIMatrix Denomiator_H;
+    CSIMatrix ConjTrans_H;
+    CSIMatrix VzfH;
+    double powersum[Nt];
+    double noisesum[Nt];
+    
+    bool index_array[Nt]; // index of the decoded signal
+    for(auto& a: index_array) a = false;
+
+    for(int nt = 0; nt < Nt; ++nt){
+        ConjTrans_H = h.conjugate().transpose();
+        Denomiator_H = ConjTrans_H * h;
+
+        switch (*argv[1]){
+            case '3':
+            case '5':
+                break;
+            case '4':
+                for(int i = 0; i < Nt; ++i) Denomiator_H(i, i) += ComplexD(N_Var, 0);
+
+                // Denomiator_H = ConjTrans_H * h + WeightedIdentityMatrix;
+                break;                    
+            default:
+                break;
+        }
+        /* calculate the preprocess matrix */
+        v = Denomiator_H.inverse() * ConjTrans_H;        
+        VzfH = v * h;
+
+        /* calculate the parameters need by SINR */
+        for(int i = 0; i < Nt; ++i){
+            powersum[i] = 0;
+            noisesum[i] = 0;
+            for(int j = 0; j < Nt; ++j)
+                powersum[i] += pow(abs(VzfH(i, j)), 2);
+
+            for(int j = 0; j < Nt; ++j)
+                noisesum[i] += pow(abs(v(i, j)), 2);
+        }
+        
+        float SINR[Nt] = {0};
+        float denominator = 0.0;
+        
+        /* calculate the maximum SINR */        
+        switch (*argv[1]){
+            case '3':
+            case '4':
+                for(int nr = 0; nr < Nr; ++nr){
+                    if(index_array[nr] == false){
+                        denominator = powersum[nr] - pow(abs(VzfH(nr,nr)), 2) + N_Var * noisesum[nr];
+                        SINR[nr] = pow(abs(VzfH(nr,nr)), 2) / denominator;
+                    }else{
+                        SINR[nr] = 0;
+                    }
+                }
+                break;
+            case '5':
+                for(int nr = 0; nr < Nr; ++nr){
+                    if(index_array[nr] == false){
+                        denominator = N_Var * noisesum[nr];
+                        SINR[nr] = 1.0 / denominator;
+                    }else{
+                        SINR[nr] = 0;
+                    }
+                }
+                break;                    
+            default:
+                break;
+        }
+    #ifdef DebugMode
+        cout<<"SINR"<<endl;
+        for(auto b: SINR) cout<<b<<" ";
+        cout<<endl;
+    #endif
+
+        /* find the max SINR subchannel */
+        int index_max = 0;
+        // find the first value
+        for(int i = 0; i < Nt; ++i){
+            if(index_array[i] == false){
+                index_max = i;
+                break;
+            }
+        }
+        for(int i = index_max + 1; i < Nt; ++i){
+            if(index_array[i] == false){
+                if(SINR[i] > SINR[index_max]) index_max = i;         
+            }
+        }
+        index_array[index_max] = true;
+
+    #ifdef DebugMode
+        cout<<"index_max: "<<index_max<<endl;
+        cout<<endl;
+    #endif
+
+        /* decode the signal on the max SINR subchannel in this loop */
+        ComplexD x_temp(0,0);
+        for(int nr = 0; nr < Nt; ++nr) x_temp += v(index_max, nr) * symAfterFC(nr);
+        
+        /* check the performance of the post processing */
     #ifdef BPSK
-        for(int nr = 0; nr < Nr; ++nr){
-            BER_TOTAL += static_cast<double>(decode(nr) != source(nr));
-        }
+        decode(index_max) = static_cast<int>(x_temp.real() > 0);
+        x_temp = ComplexD(static_cast<double>(2*decode(index_max) - 1), 0);
     #endif
+    
     #ifdef QPSK
-        for(int nr = 0; nr < Nr; ++nr){
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
-        }
+        decode(index_max * BitperSymbol) = static_cast<int>(x_temp.imag() < 0);
+        decode(index_max * BitperSymbol + 1) = static_cast<int>(x_temp.real() < 0);
+        x_temp = ComplexD(static_cast<double>(1 - 2 * decode(index_max * BitperSymbol + 1)) * sqrt(0.5), 
+                          static_cast<double>(1 - 2 * decode(index_max * BitperSymbol)) * sqrt(0.5));
     #endif
-    #ifdef QAM16
-        for(int nr = 0; nr < Nr; ++nr){
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
-            BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
-        }
-    #endif
+    
+        /* cancell the interference */
+        for(int nr = 0; nr < Nr; ++nr) symAfterFC(nr) -= h(nr, index_max) *x_temp;
+        for(int nr = 0; nr < Nr; ++nr) h(nr, index_max) = ComplexD(0, 0);
+    }
+ 
+    /* check the performance of the post processing */
+#ifdef BPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        BER_TOTAL += static_cast<double>(decode(nr) != source(nr));
+    }
+#endif
+
+#ifdef QPSK
+    for(int nr = 0; nr < Nr; ++nr){
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol)!=source(nr * BitperSymbol));
+        BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
+    }
+#endif
+
 }

@@ -29,7 +29,6 @@ using namespace Eigen;
 /* Modulation mode*/
 #define BPSK
 // #define QPSK
-// #define 16QAM
 
 typedef complex<double> ComplexD;
 
@@ -46,22 +45,18 @@ constexpr double power = 1;
     constexpr int Mod = 4;				        /* QPSK modulation order */
     constexpr int BitperSymbol = 2;				            
 #endif
-#ifdef QAM16
-    constexpr int Mod = 16;				        /* QPSK modulation order */
-    constexpr int BitperSymbol = 4;				            
-#endif
 
 constexpr double PI = 3.141592653589793;
-constexpr int minEbN0dB = 0;
+constexpr int MinEbN0dB = 0;
 #ifdef DebugMode
     constexpr long NLoop = pow(10, 1);          /* number of simulation loops  */
-    constexpr int maxEbN0dB = minEbN0dB;
+    constexpr int MaxEbN0dB = MinEbN0dB;
 #else
     constexpr long NLoop = pow(10, 7);          /* number of simulation loops  */
-    constexpr int maxEbN0dB = 30;           
+    constexpr int MaxEbN0dB = 30;           
 #endif
 
-constexpr int step = 3;           
+constexpr int Step = 3;           
 
 /* source codewords, Nt*1 */
 typedef Matrix<int, Nt * BitperSymbol, 1> SourceMatrix;
@@ -162,7 +157,7 @@ void Receiver(ModuMatrix& modu,
 
 
 /**************************************
- * description: receiving signals
+ * description: process the signals by OSIC-version 1
  * date: 2021/4/02
  ***************************************/
 void Receiver_OSIC(ModuMatrix& modu,
@@ -172,4 +167,16 @@ void Receiver_OSIC(ModuMatrix& modu,
                    DecodeMatrix& decode,
                    char* argv[]);
 
+
+/**************************************
+ * description: process the signals by OSIC-version 2(save half time)
+ * date: 2021/4/17
+ ***************************************/
+void Receiver_OSIC_V2(ModuMatrix& modu, 
+                      SymAfterFCMatrix& symAfterFC, 
+                      CSIMatrix& h, 
+                      CSIMatrix& v, 
+                      SourceMatrix& source, 
+                      DecodeMatrix& decode, 
+                      char* argv[]);
 #endif //UDM_NOMA_DL_CLST_TEQUALR_V4_HEADER_H

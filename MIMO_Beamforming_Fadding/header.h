@@ -47,7 +47,7 @@ constexpr double power = 1;
 #endif
 
 constexpr double PI = 3.141592653589793;
-constexpr int minEbN0dB = 26;
+constexpr int minEbN0dB = 0;
 #ifdef DebugMode
     constexpr long NLoop = pow(10, 0);            /* number of simulation loops  */
     constexpr int maxEbN0dB = minEbN0dB;

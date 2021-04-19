@@ -75,8 +75,8 @@ void Initialize(char* argv[]){
 void ChannelInitialize(int ebN0dB){
 
     /* the total power of transmitter is fixed */
-    double ebN0 = pow(10,(double)ebN0dB/10);
-    double snr = BitperSymbol * ebN0;
+    double EbN0 = pow(10,(double)ebN0dB/10);
+    double EsN0 = BitperSymbol * EbN0;
     double N0 = power * Nt /(snr);
     N_Var = N0/2;
     

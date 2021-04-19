@@ -56,7 +56,7 @@ void ChannelInitialize(int ebN0dB){
 
     double ebN0 = pow(10, (double)ebN0dB/10);
     double EsN0 = 1 * ebN0;
-    double N0 = 1 / (EsN0 * Nt );
+    double N0 = power * Nt / EsN0;
     // double N0 = power / (EsN0*Nt);
     N_Var = N0/2;
     BER_TOTAL = 0;
@@ -158,6 +158,7 @@ void Receiver(ModuMatrix& modu, CSIMatrix& h, ModuMatrix* constell,
     double tmpMinDist = 0;
 
     for(int point = 0; point < Mpoint; ++point){
+        tmpMinDist = 0;
         SymAfterFCMatrix tmpMinus = symAfterFC - ConstellFixed[point];
 
         for(int nr = 0; nr < Nr; ++nr){
@@ -167,7 +168,6 @@ void Receiver(ModuMatrix& modu, CSIMatrix& h, ModuMatrix* constell,
             minDist = tmpMinDist;
             minDistPoint = point;
         }
-        tmpMinDist = 0;
     }
     bitset<Nt> bit(minDistPoint);
     for(int nt = 0; nt < Nt; ++nt){
