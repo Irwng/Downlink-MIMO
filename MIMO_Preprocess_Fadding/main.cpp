@@ -29,12 +29,12 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    double NUM = NLoop*Nr*BitperSymbol;
+    double NUM = NLoop*Nt*BitperSymbol;
     #ifndef DebugMode
         Initialize(argv);
     #endif
-    for(int EbN0dB = MinEbN0dB; EbN0dB <= MaxEbN0dB; EbN0dB=EbN0dB+Step){
-        ChannelInitialize(EbN0dB);
+    for(int snrdB = MinSNRdB; snrdB <= MaxSNRdB; snrdB = snrdB + Step){
+        ChannelInitialize(snrdB);
         for(int loop = 1; loop <= NLoop; loop++){
             BitSource(Source);
             Modulation(Source, Modu);
@@ -52,8 +52,8 @@ int main(int argc, char* argv[]){
             if(loop == NLoop) cout<<endl;
         }
         BER = static_cast<double>(BER_TOTAL/NUM);
-        cout<<EbN0dB<<setw(20)<<BER<<endl;
-        outfile<<EbN0dB<<setw(20)<<BER<<endl;
+        cout<<snrdB<<setw(20)<<BER<<endl;
+        outfile<<snrdB<<setw(20)<<BER<<endl;
     }
     cout<<"time(s): "<<time(NULL) - start<<endl;
     outfile<<"time(s): "<<time(NULL) - start<<endl;

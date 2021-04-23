@@ -3,10 +3,11 @@ Author:   wangyi     Version : C++11  Date: 2020/10/27
 Description: header.cpp
 ***********************************************************/
 #include "header.h"
-
-double N_Var;                                       /* variance of Noise */
+double N_Var;
 double BER_TOTAL = 0;                               /* total number of error symbols */
 double BER = 0;                                     /* Bits Error Rate */
+double power;
+double belta;
 double alpha = 0;
 double alphasum = 0;
 fstream outfile;
@@ -15,7 +16,10 @@ SourceMatrix Source;                                /* source codewords */
 ModuMatrix Modu;                                    /* symbols after modulation */
 CSIMatrix H;                                        
 CSIMatrix svdU;                                     
-CSIMatrix svdV;                                     
+CSIMatrix svdV; 
+CSIMatrix qrQ;
+CSIMatrix qrR;                                    
+CSIMatrix qrA;                                    
 ModuMatrix vectorS;
 CSIMatrix WeightedIdentityMatrix;                   /* MMSE assistance matrix */
 BFMatrix W;                                         /* beamforming matrix */
@@ -49,8 +53,8 @@ void Initialize(char* argv[]){
             break;
 
         case '4':
-            cout<<"BD"<<endl;
-            outfile<<"BD"<<endl;
+            cout<<"DPC"<<endl;
+            outfile<<"DPC"<<endl;
             break;
 
         default:
@@ -61,29 +65,45 @@ void Initialize(char* argv[]){
     cout<<"FaddingChannel"<<endl;
     outfile<<"FaddingChannel"<<endl;
     
-    cout<<"Order of modulation: "<<Mod<<endl;   
-    outfile<<"Order of modulation: "<<Mod<<endl; 
+#ifdef BPSK
+    cout<<"BPSK"<<endl;   
+    outfile<<"BPSK"<<endl; 
+#endif
+#ifdef QPSK 
+    cout<<"QPSK"<<endl;   
+    outfile<<"QPSK"<<endl;			            
+#endif
     
     cout<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"U: "<<U<<setw(10)<<"NLoop: "<<NLoop<<endl;   
     outfile<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"U: "<<U<<setw(10)<<"NLoop: "<<NLoop<<endl; 
    
-    cout<<"EbN0dB"<<setw(15)<<"BER"<<endl;
-    outfile<<"EbN0dB"<<setw(15)<<"BER"<<endl;
+    cout<<"SNRdB"<<setw(15)<<"BER"<<endl;
+    outfile<<"SNRdB"<<setw(15)<<"BER"<<endl;
 }
 
 
-void ChannelInitialize(int ebN0dB){
+void ChannelInitialize(int snrdB){
 
     /* the total power of transmitter is fixed */
-    double EbN0 = pow(10,(double)ebN0dB/10);
-    double EsN0 = BitperSymbol * EbN0;
-    double N0 = power * Nt /(snr);
-    N_Var = N0/2;
+    double snr = pow(10,(double)snrdB/10);
+    power = 1.0;
+    N_Var = 1.0 / snr;
     
     for(int nt = 0; nt < Nt; ++nt){
-        WeightedIdentityMatrix(nt, nt) = ComplexD(N_Var, 0);
+        for(int nr = 0; nr < Nt; ++nr){
+            WeightedIdentityMatrix(nr, nt) = ComplexD(0, 0);
+        }
+    }
+
+    for(int nt = 0; nt < Nt; ++nt){
+        WeightedIdentityMatrix(nt, nt) = ComplexD(N_Var*Nt, 0);
     }
     
+    for(int nt = 0; nt < Nt; ++nt){
+        for(int nr = 0; nr < Nt; ++nr){
+            qrA(nt, nr) = ComplexD(0, 0);
+        }
+    }
     BER_TOTAL = 0;
     #ifdef DebugMode
         cout<<"N_Var: "<<N_Var<<endl;
@@ -120,7 +140,6 @@ void Modulation(SourceMatrix& source, ModuMatrix& modu){
     #endif
 
     #ifdef DebugMode
-        cout<<".................Alamouti................."<<endl;
         cout<<modu<<endl;
         double sum = 0;
         for(int nt = 0; nt < Nt; ++nt){
@@ -128,11 +147,6 @@ void Modulation(SourceMatrix& source, ModuMatrix& modu){
         }
         cout << "weight of modu: "<< sum << endl;
     #endif
-
-
-    #ifdef DebugMode
-       cout<<"bpsk modulation: "<<endl<<modu<<endl;
-    #endif  
 }
 
 
@@ -157,18 +171,18 @@ ComplexD AWGN(double nvar){
 
     double GG = sqrt(-2*log(randN() + 0.000000001));
     double B = randN();
-    ComplexD GuassN(sqrt(nvar)* GG * cos(2*PI*B), sqrt(nvar)* GG * sin(2*PI*B));
+    ComplexD GuassN(sqrt(nvar/2.0)* GG * cos(2*PI*B), sqrt(nvar/2.0)* GG * sin(2*PI*B));
     return GuassN;
 }
 
 
-void Beamforming(ModuMatrix& modu, CSIMatrix& h,
-                 BFMatrix& w, SymAfterBFMatrix& symAfterBF,
-                 char* argv[]){
+void Beamforming(ModuMatrix& modu, CSIMatrix& h, BFMatrix& w, 
+                 SymAfterBFMatrix& symAfterBF, char* argv[]){
 
     CSIMatrix Denomiator_H;
     CSIMatrix ConjTrans_H;
     CSIMatrix Base_H;
+    CSIMatrix Denomiator_W;
     double sum = 0;
     
     switch (*argv[1]){
@@ -177,15 +191,16 @@ void Beamforming(ModuMatrix& modu, CSIMatrix& h,
             ConjTrans_H = h.conjugate().transpose();
             Denomiator_H = h * ConjTrans_H; 
             Base_H = ConjTrans_H * (Denomiator_H.inverse());
-            
-            w = Base_H;
-            symAfterBF = w * modu;
 
+            Denomiator_W = Base_H * (Base_H.conjugate().transpose());
             sum = 0;
             for(int nt = 0; nt < Nt; ++nt){
-                sum += pow(abs(symAfterBF(nt)), 2);
+                sum += abs(Denomiator_W(nt,nt));
             }
-            symAfterBF = sqrt(power/sum) * symAfterBF;
+            belta = sqrt(power/sum); 
+
+            w = belta * Base_H;
+            symAfterBF = w * modu;
 
             break;
 
@@ -195,44 +210,64 @@ void Beamforming(ModuMatrix& modu, CSIMatrix& h,
             Denomiator_H = h * ConjTrans_H + WeightedIdentityMatrix; 
             Base_H = ConjTrans_H * (Denomiator_H.inverse());
 
-            w = Base_H;
-            symAfterBF = w * modu;
-
+            Denomiator_W = Base_H * (Base_H.conjugate().transpose());
             sum = 0;
             for(int nt = 0; nt < Nt; ++nt){
-                sum += pow(abs(symAfterBF(nt)), 2);
+                sum += abs(Denomiator_W(nt,nt));
             }
-            symAfterBF = sqrt(power/sum) * symAfterBF;
+            belta = sqrt(power/sum); 
+            w = belta * Base_H;
+            symAfterBF = w * modu;
 
             break;
 
         /* SVD */
         case '3':
             SVD(h, svdU, svdV, vectorS);
-            symAfterBF =  sqrt(0.5) * svdV * modu;
+            symAfterBF = svdV * modu;
+
+            break;
+
+        /* DPC */
+        case '4':
+            QR(h, qrQ, qrR);
+            for(int nt = 0; nt < Nt; ++nt) qrA(nt, nt) = ComplexD(1, 0) /qrR(nt, nt);
+            w = qrQ * qrA;
+            
+            Base_H = w * ((h * w).inverse());
+
+            Denomiator_W = Base_H * (Base_H.conjugate().transpose());
+            sum = 0;
+            for(int nt = 0; nt < Nt; ++nt){
+                sum += abs(Denomiator_W(nt,nt));
+            }
+            belta = sqrt(power/sum);
+            w = belta * Base_H;
+            symAfterBF = w * modu;
+
             break;
 
         default:
             break;
     }
 
-    #ifdef DebugMode
-        cout<<"w"<<endl<<w<<endl;
-        sum = 0;
-        for(int nt = 0; nt < Nt; ++nt){
-            for(int nr = 0; nr < Nt; ++nr){
-                sum += pow(abs(w(nt, nr)), 2);
-            }
+#ifdef DebugMode
+    cout<<"w"<<endl<<w<<endl;
+    sum = 0;
+    for(int nt = 0; nt < Nt; ++nt){
+        for(int nr = 0; nr < Nt; ++nr){
+            sum += pow(abs(w(nt, nr)), 2);
         }
-        cout << "weight of w: "<< sum << endl;
-        
-        cout<<"symAfterBF"<<endl<<symAfterBF<<endl;
-        sum = 0;
-        for(int nt = 0; nt < Nt; ++nt){
-            sum += pow(abs(symAfterBF(nt)), 2);
-        }
-        cout<<"weight of symAfterBF: "<<sum<<endl;
-    #endif
+    }
+    cout << "weight of w: "<< sum << endl;
+    
+    cout<<"symAfterBF"<<endl<<symAfterBF<<endl;
+    sum = 0;
+    for(int nt = 0; nt < Nt; ++nt){
+        sum += pow(abs(symAfterBF(nt)), 2);
+    }
+    cout<<"weight of symAfterBF: "<<sum<<endl;
+#endif
 }
 
 
@@ -249,11 +284,16 @@ void Receiver(SymAfterBFMatrix& symAfterBF, SymAfterFCMatrix& symAfterFC,
     switch (*argv[1]){
         case '1':
         case '2':
+        case '4':
+            // symAfterFC = (1.0/belta)*(h * symAfterBF + tmp);
             symAfterFC = h * symAfterBF + tmp;
             break;
 
         case '3':
-            symAfterFC = (svdU.conjugate().transpose())* h * symAfterBF + tmp;
+            symAfterFC = (svdU.conjugate().transpose()) * (h * symAfterBF + tmp);//
+            for(int nr = 0; nr < Nt; ++nr){
+                symAfterFC(nr) /= vectorS(nr);
+            }
             break;
 
         default:
@@ -275,6 +315,10 @@ void Receiver(SymAfterBFMatrix& symAfterBF, SymAfterFCMatrix& symAfterFC,
         }
     #endif
 
+#ifdef DebugMode
+    cout<<"symAfterFC"<<endl<<symAfterFC<<endl;
+#endif
+
 }
 
 
@@ -286,30 +330,24 @@ void SVD(CSIMatrix& h, CSIMatrix& u, CSIMatrix& v, ModuMatrix& vectorS){
     vectorS = svd.singularValues();
 
     #ifdef DebugMode
-        CSIMatrix tmpU = u * (u.conjugate().transpose());
-        CSIMatrix tmpV = v * (v.conjugate().transpose());
-        // CSIMatrix S =  u.inverse() * h * (v.conjugate().transpose().inverse()); // S = U^-1 * A * VT * -1
-        cout << "JacobiSVD---------------------------------------------"<< std::endl;
+        CSIMatrix S =  u.inverse() * h * (v.conjugate().transpose().inverse()); // S = U^-1 * H * VT^-1
+        cout << "---------------------JacobiSVD------------------------"<< std::endl;
         cout << "H"<< endl << h << endl;
-        cout << "U*U^H"<< endl << tmpU << endl;
-        cout << "V*V^H"<< endl << tmpV << endl;
-        // cout << "vectorS"<< endl << vectorS << endl;
-
-        double sum = 0;
-        for(int nt = 0; nt < Nt; ++nt){
-            for(int nr = 0; nr < Nt; ++nr){
-                sum += pow(abs(tmpU(nt, nr)), 2);
-            }
-        }
-        cout << "weight of U*U^H: "<< sum << endl;
-
-        sum = 0;
-        for(int nt = 0; nt < Nt; ++nt){
-            for(int nr = 0; nr < Nt; ++nr){
-                sum += pow(abs(tmpV(nt, nr)), 2);
-            }
-        }
-        cout << "weight of V*V^H: "<< sum << endl;
-        
+        cout << "S"<< endl << S << endl;
+        cout << "U*S*V^H"<< endl << u*S*(v.conjugate().transpose()) << endl;
     #endif
+}
+
+void QR(CSIMatrix& h, CSIMatrix& q, CSIMatrix& r){
+
+    HouseholderQR<CSIMatrix> qr;
+    qr.compute(h.conjugate().transpose());
+    r = qr.matrixQR().triangularView<Eigen::Upper>();
+    q = qr.householderQ();
+
+#ifdef DebugMode
+    cout << "H = " << endl << h << endl << endl;
+    cout << "Q = " << endl << q << endl << endl;
+    cout << "R = " << endl << r << endl << endl;
+#endif
 }

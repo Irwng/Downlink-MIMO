@@ -85,7 +85,7 @@ void Modulation(SourceMatrix& source, ModuMatrix& modu){
 
     /* BPSK: 0->-1, 1->1 */
     for(int i = 0; i < Nt; i++){
-        modu(i) = ComplexD(2*source(i)-1, 0);
+        modu(i) = sqrt(1.0/static_cast<double>(Nt)) * ComplexD(2*source(i)-1, 0);
     }
 
     #ifdef DebugMode
@@ -138,7 +138,7 @@ void Receiver(ModuMatrix& modu, CSIMatrix& h, ModuMatrix* constell,
     }
 
     SymAfterFCMatrix symAfterFC;
-    symAfterFC = h * modu + tmp;//
+    symAfterFC =sqrt(static_cast<double>(Nt))*(h * modu + tmp);//
 
     /*** adjust the master-constellation ***/
     for(int point = 0; point < Mpoint; ++point){

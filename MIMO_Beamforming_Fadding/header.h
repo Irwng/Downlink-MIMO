@@ -5,7 +5,6 @@ Description: header.h
 #ifndef MIMO_BEAMFORMING_FADDING_HEADER_H
 #define MIMO_BEAMFORMING_FADDING_HEADER_H
 
-
 #include <iostream>
 #include <cmath>
 #include <cstdlib>
@@ -20,7 +19,7 @@ Description: header.h
 using namespace std;
 using namespace Eigen;
 
-#define randN() (rand()/(double)RAND_MAX)     /* Random value in [0, 1] */
+#define randN() (rand()/(double)RAND_MAX)         /* Random value in [0, 1] */
 typedef complex<double> ComplexD;
 
 /* running mode*/
@@ -33,30 +32,39 @@ typedef complex<double> ComplexD;
 
 /* basic model parameters */ 
 
-constexpr int U = 10;                              /* Number of users */
+constexpr int U = 4;                              /* Number of users */
 constexpr int Nr = 1;                             /* number of antennas at recevier */
 constexpr int Nt = U*Nr;                          /* number of antennas at transmitter */    
 constexpr int LenBit = Nt;                        /* number of bits of all users */
-constexpr double power = 1;
 #ifdef BPSKMode
-    constexpr int Mod = 2;				              /* BPSK modulation order */
+    constexpr int Mod = 2;				          /* BPSK modulation order */
     constexpr int BitperSymbol = 1;			
 #else
-    constexpr int Mod = 4;				              /* QPSK modulation order */
+    constexpr int Mod = 4;				          /* QPSK modulation order */
     constexpr int BitperSymbol = 2;				            
 #endif
 
-constexpr double PI = 3.141592653589793;
-constexpr int minEbN0dB = 0;
 #ifdef DebugMode
-    constexpr long NLoop = pow(10, 0);            /* number of simulation loops  */
-    constexpr int maxEbN0dB = minEbN0dB;
+    constexpr int MinSNRdB = 30;
+    constexpr long NLoop = pow(10, 1);            /* number of simulation loops  */
+    constexpr int MaxSNRdB = MinSNRdB;
 #else
-    constexpr long NLoop = pow(10, 7);            /* number of simulation loops  */
-    constexpr int maxEbN0dB = 30;           
+    constexpr int MinSNRdB = 0;
+    constexpr long NLoop = pow(10, 6);            /* number of simulation loops  */
+    constexpr int MaxSNRdB = 30;           
 #endif
 
-constexpr int step = 3;           
+constexpr int Step = 3;           
+constexpr double PI = 3.141592653589793;
+
+extern double N_Var;
+extern double BER_TOTAL;                          /* total number of error bits*/
+extern double BER;                                /* total number of error bits*/
+extern double power;
+extern double belta;
+extern double alpha;
+extern double alphasum;
+extern fstream outfile;
 
 /* source codewords, Nt*1 */
 typedef Matrix<int, Nt * BitperSymbol, 1> SourceMatrix;
@@ -72,6 +80,9 @@ extern CSIMatrix H;
 extern CSIMatrix svdU;
 extern CSIMatrix svdV;
 extern ModuMatrix vectorS;
+extern CSIMatrix qrQ;
+extern CSIMatrix qrR;
+extern CSIMatrix qrA;
 
 /* MMSE assistance matrix */
 extern CSIMatrix WeightedIdentityMatrix;
@@ -92,13 +103,6 @@ extern SymAfterFCMatrix SymAfterFC;
 typedef SourceMatrix DecodeMatrix;
 extern DecodeMatrix Decode;
 
-extern double N_Var;                      /* variance of Noise*/
-extern double BER_TOTAL;                     /* total number of error bits*/
-extern double BER;                        /* total number of error bits*/
-extern double alpha;
-extern double alphasum;
-extern fstream outfile;
-
 
 /**************************************
  * description: initialize the io & parameters
@@ -115,7 +119,7 @@ void Initialize(char* argv[]);
  * input parameters: SNR
  * output parameters: Eb/N0
  ***************************************/
-void ChannelInitialize(int SNR);
+void ChannelInitialize(int snrdB);
 
 
 /**************************************
@@ -143,8 +147,6 @@ void Modulation(SourceMatrix& source, ModuMatrix& modu);
  * output parameters: receiving signals pointer
  ***************************************/
 void FadingChannel(CSIMatrix& h);
-
-
 
 
 /**************************************
@@ -191,4 +193,11 @@ void Receiver(SymAfterBFMatrix& symAfterBF,
  ***************************************/
 void SVD(CSIMatrix& h, CSIMatrix& u, CSIMatrix& v, ModuMatrix& vectorS);
 
+/**************************************
+ * description: do QR transform for the CSIMatrix
+ * date: 2021/04/21
+ * input parameters: CSIMatrix h
+ * output parameters: CSIMatrix qrQ, qrR
+ ***************************************/
+void QR(CSIMatrix& h, CSIMatrix& q, CSIMatrix& r);
 #endif //MIMO_BEAMFORMING_FADDING_HEADER_H

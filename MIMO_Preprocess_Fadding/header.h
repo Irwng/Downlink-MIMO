@@ -36,7 +36,6 @@ typedef complex<double> ComplexD;
 
 constexpr int Nr = 4;                           /* number of antennas at recevier */
 constexpr int Nt = Nr;                          /* number of antennas at transmitter */    
-constexpr double power = 1;
 #ifdef BPSK
     constexpr int Mod = 2;				        /* BPSK modulation order */
     constexpr int BitperSymbol = 1;			
@@ -47,16 +46,22 @@ constexpr double power = 1;
 #endif
 
 constexpr double PI = 3.141592653589793;
-constexpr int MinEbN0dB = 0;
+constexpr int MinSNRdB = 0;
 #ifdef DebugMode
     constexpr long NLoop = pow(10, 1);          /* number of simulation loops  */
-    constexpr int MaxEbN0dB = MinEbN0dB;
+    constexpr int MaxSNRdB = MinSNRdB;
 #else
-    constexpr long NLoop = pow(10, 7);          /* number of simulation loops  */
-    constexpr int MaxEbN0dB = 30;           
+    constexpr long NLoop = pow(10, 6);          /* number of simulation loops  */
+    constexpr int MaxSNRdB = 30;           
 #endif
 
 constexpr int Step = 3;           
+
+extern double power;
+extern double N_Var;                            /* variance of Noise*/
+extern double BER_TOTAL;                        /* total number of error bits*/
+extern double BER;                              /* total number of error bits*/
+extern fstream outfile;
 
 /* source codewords, Nt*1 */
 typedef Matrix<int, Nt * BitperSymbol, 1> SourceMatrix;
@@ -80,11 +85,6 @@ extern SymAfterFCMatrix SymAfterPP;
 /* final decoded results */
 typedef SourceMatrix DecodeMatrix;
 extern DecodeMatrix Decode;
-
-extern double N_Var;                            /* variance of Noise*/
-extern double BER_TOTAL;                        /* total number of error bits*/
-extern double BER;                              /* total number of error bits*/
-extern fstream outfile;
 
 
 /**************************************

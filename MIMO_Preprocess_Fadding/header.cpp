@@ -4,6 +4,7 @@ Description: header.cpp
 ***********************************************************/
 #include "header.h"
 
+double power;                                       
 double N_Var;                                       /* variance of Noise */
 double BER_TOTAL = 0;                               /* total number of error symbols */
 double BER = 0;                                     /* Bits Error Rate */
@@ -78,18 +79,17 @@ void Initialize(char* argv[]){
     cout<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"NLoop: "<<NLoop<<endl;   
     outfile<<"Nt: "<<Nt<<setw(10)<<"Nr: "<<Nr<<setw(10)<<"NLoop: "<<NLoop<<endl; 
    
-    cout<<"EbN0dB"<<setw(15)<<"BER"<<endl;
-    outfile<<"EbN0dB"<<setw(15)<<"BER"<<endl;
+    cout<<"SNRdB"<<setw(15)<<"BER"<<endl;
+    outfile<<"SNRdB"<<setw(15)<<"BER"<<endl;
 }
 
 
-void ChannelInitialize(int ebN0dB){
+void ChannelInitialize(int snrdB){
 
     /* the total power of transmitter is fixed */
-    double ebN0 = pow(10,(double)ebN0dB/10);
-    double snr = BitperSymbol * ebN0;
-    double N0 = Nt * power / snr;
-    N_Var = N0/2;
+    double snr = pow(10,(double)snrdB/10);
+    power = 1.0;
+    N_Var = Nt * power / snr;
     
     for(int nt = 0; nt < Nt; ++nt){
         WeightedIdentityMatrix(nt, nt) = ComplexD(N_Var, 0);
@@ -101,7 +101,6 @@ void ChannelInitialize(int ebN0dB){
     cout<<"N_Var: "<<N_Var<<endl;
     cout<<"WeightedIdentityMatrix"<<endl<<WeightedIdentityMatrix<<endl;
 #endif
-
 }
 
 
@@ -157,7 +156,6 @@ void FadingChannel(CSIMatrix& h){
 #ifdef DebugMode
     cout<<"h"<<endl<<h<<endl;
 #endif 
-
 }
 
 
@@ -165,7 +163,7 @@ ComplexD AWGN(double nvar){
 
     double GG = sqrt(-2*log(randN() + 0.000000001));
     double B = randN();
-    ComplexD GuassN(sqrt(nvar)* GG * cos(2*PI*B), sqrt(nvar)* GG * sin(2*PI*B));
+    ComplexD GuassN(sqrt(nvar/2)* GG * cos(2*PI*B), sqrt(nvar/2)* GG * sin(2*PI*B));
     return GuassN;
 }
 
@@ -230,7 +228,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
     for(int nr = 0; nr < Nr; ++nr){
         tmp(nr) = AWGN(N_Var);
     }
-    symAfterFC = h * modu + tmp;//  
+    symAfterFC = h * modu + tmp;
     
     bool index_array[Nt]; // index of the decoded signal
     for(auto& a: index_array) a = false;
@@ -379,7 +377,7 @@ void Receiver_OSIC(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
     #endif
         
         /* cancell the interference */
-        for(int nr = 0; nr < Nr; ++nr) symAfterFC(nr) -= h_temp(nr, index_max) *x_temp;
+        for(int nr = 0; nr < Nr; ++nr) symAfterFC(nr) -= h_temp(nr, index_max) *  x_temp;
     }
  
     /* check the performance of the post processing */
