@@ -18,7 +18,8 @@ CSIMatrix V;                                        /* preprocess matrix */
 SymAfterFCMatrix SymAfterFC;                        /* receiving signals */ 
 SymAfterFCMatrix SymAfterPP;                        /* receiving signals after postprocessing */
 DecodeMatrix Decode;  
-
+ModuMatrix Constell[Mpoint];
+SymAfterFCMatrix ConstellFixed[Mpoint];
 
 void Initialize(char* argv[]){
 
@@ -58,6 +59,11 @@ void Initialize(char* argv[]){
             cout<<"OSIC-MMSE-SNR"<<endl;
             outfile<<"OSIC-MMSE-SNR"<<endl;
             break;
+            
+        case '7':
+            cout<<"MAP"<<endl;
+            outfile<<"MAP"<<endl;
+            break;
 
         default:
             cout<<"Invaild input!"<<endl;
@@ -81,6 +87,14 @@ void Initialize(char* argv[]){
    
     cout<<"SNRdB"<<setw(15)<<"BER"<<endl;
     outfile<<"SNRdB"<<setw(15)<<"BER"<<endl;
+    
+    /* initialize the Masterconstellation by bitset */
+    for(int mpoint = 0; mpoint < Mpoint; ++mpoint){
+        bitset<Nt> bit(mpoint);
+        for(int nt = 0; nt < Nt; ++nt){
+            Constell[mpoint](nt) = ComplexD(static_cast<double>(2 * bit[nt] - 1), 0);
+        } 
+    }  
 }
 
 
@@ -113,7 +127,6 @@ void BitSource(SourceMatrix& source){
 #ifdef DebugMode
     cout<<"source: "<<endl<<source<<endl;
 #endif
-
 }
 
 
@@ -538,5 +551,77 @@ void Receiver_OSIC_V2(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC,
         BER_TOTAL += static_cast<double>(decode(nr * BitperSymbol + 1)!=source(nr * BitperSymbol + 1));
     }
 #endif
+}
 
+void Receiver_MAP(ModuMatrix& modu, SymAfterFCMatrix& symAfterFC, 
+                  CSIMatrix& h, ModuMatrix* constell,
+                  SourceMatrix& source,  SourceMatrix& decode, 
+                  char* argv[]){
+
+    /* AWGN */
+    SymAfterFCMatrix tmp;
+    for(int nr = 0; nr < Nr; nr++){
+        tmp(nr) = AWGN(N_Var);
+    }
+
+    /*** Fadding channel ***/
+    symAfterFC = h * modu + tmp;//
+
+    /*** adjust the master-constellation ***/
+    for(int point = 0; point < Mpoint; ++point){
+        ConstellFixed[point] = h * constell[point];
+    }
+
+    #ifdef DebugMode
+        cout<<"...................MasterConstell..................."<<endl;
+        for(int i = 0; i < Mpoint; i++){    
+            cout<<ConstellFixed[i]<<endl;
+        }
+    #endif  
+
+    /* MAP */
+    double minDist = INT16_MAX;
+    int minDistPoint = 0;
+    double tmpMinDist = 0;
+    // find the minimum Euclidean distance
+    for(int point = 0; point < Mpoint; ++point){
+        tmpMinDist = 0;
+        SymAfterFCMatrix tmpMinus = symAfterFC - ConstellFixed[point];
+
+        for(int nr = 0; nr < Nr; ++nr){
+            tmpMinDist += pow(abs(tmpMinus(nr)), 2);
+        }
+        if(tmpMinDist < minDist){
+            minDist = tmpMinDist;
+            minDistPoint = point;
+        }
+    }
+    bitset<Nt> bit(minDistPoint);
+    for(int nt = 0; nt < Nt; ++nt){
+        decode(nt) = bit[nt];
+    }
+
+    for(int nt = 0; nt < Nt; ++nt){
+        if(decode(nt) != source(nt)) BER_TOTAL++;
+    }
+
+    #ifdef DebugMode
+        cout<<".................AWGN................."<<endl;
+        cout<<tmp<<endl; 
+        
+        cout<<".................bit................."<<endl;
+        for(int nt = 0; nt < Nt; ++nt){
+            cout<<bit[nt]<<" ";
+        }
+        cout<<endl;
+
+        cout<<".................symAfterFC................."<<endl;
+        cout<<symAfterFC<<endl; 
+
+        cout<<".................minDistPoint................."<<endl;
+        cout<<minDistPoint<<endl; 
+
+        cout<<".................decode................."<<endl;
+        cout<<decode<<endl; 
+    #endif
 }

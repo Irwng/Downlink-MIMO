@@ -70,6 +70,7 @@ extern double BER;                                /* total number of error bits*
 extern double power;
 extern double PowerRate;                          /* power allocation rate in beamforming matrix */
 extern double beta;                               
+extern double sum;                               
 extern fstream outfile;
 
 /* source codewords, Nt*1 */

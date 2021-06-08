@@ -24,6 +24,7 @@ int main(int argc, char* argv[]){
         cout<<"4: OSIC-MMSE-SINR"<<endl;
         cout<<"5: OSIC-ZF-SNR"<<endl;
         cout<<"6: OSIC-MMSE-SNR"<<endl;
+        cout<<"7: MAP"<<endl;
 
         if(Nr!=Nt) cout<<"Dimension Error: U*Nr!=Nt"<<endl;
         return 0;
@@ -41,6 +42,9 @@ int main(int argc, char* argv[]){
             FadingChannel(H);
             if(*argv[1] == '1'|| *argv[1] == '2'){
                 Receiver(Modu, SymAfterFC, H, V, Source, Decode, argv);
+            }
+            else if(*argv[1] == '7'){
+                Receiver_MAP(Modu, SymAfterFC, H, Constell, Source, Decode, argv);                
             }
             else{
                 Receiver_OSIC(Modu, SymAfterFC, H, Source, Decode, argv);

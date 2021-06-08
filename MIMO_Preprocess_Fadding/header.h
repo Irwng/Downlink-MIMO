@@ -14,6 +14,7 @@ Description: header.h
 #include <vector>
 #include <iomanip>
 #include <complex>
+#include <bitset>
 #include <Eigen/SVD>
 #include <Eigen/Dense>
 
@@ -44,6 +45,7 @@ constexpr int Nt = Nr;                          /* number of antennas at transmi
     constexpr int Mod = 4;				        /* QPSK modulation order */
     constexpr int BitperSymbol = 2;				            
 #endif
+constexpr int Mpoint = pow(Mod, Nt);
 
 constexpr double PI = 3.141592653589793;
 constexpr int MinSNRdB = 0;
@@ -51,7 +53,7 @@ constexpr int MinSNRdB = 0;
     constexpr long NLoop = pow(10, 1);          /* number of simulation loops  */
     constexpr int MaxSNRdB = MinSNRdB;
 #else
-    constexpr long NLoop = pow(10, 6);          /* number of simulation loops  */
+    constexpr long NLoop = pow(10, 8);          /* number of simulation loops  */
     constexpr int MaxSNRdB = 30;           
 #endif
 
@@ -70,6 +72,7 @@ extern SourceMatrix Source;
 /* symbols after modulation, Nt*1 */
 typedef Matrix<ComplexD, Nt, 1> ModuMatrix;
 extern ModuMatrix Modu;
+extern ModuMatrix Constell[Mpoint];
 
 /* channel parameters , Nr*Nt */
 typedef Matrix<ComplexD, Nr, Nt> CSIMatrix;
@@ -81,6 +84,7 @@ extern CSIMatrix WeightedIdentityMatrix;        /* MMSE assistance matrix */
 typedef Matrix<ComplexD, Nr, 1> SymAfterFCMatrix;
 extern SymAfterFCMatrix SymAfterFC;
 extern SymAfterFCMatrix SymAfterPP;
+extern SymAfterFCMatrix ConstellFixed[Mpoint];
 
 /* final decoded results */
 typedef SourceMatrix DecodeMatrix;
@@ -179,4 +183,13 @@ void Receiver_OSIC_V2(ModuMatrix& modu,
                       SourceMatrix& source, 
                       DecodeMatrix& decode, 
                       char* argv[]);
+
+void Receiver_MAP(ModuMatrix& modu, 
+                  SymAfterFCMatrix& symAfterFC, 
+                  CSIMatrix& h, 
+                  ModuMatrix* constell,
+                  SourceMatrix& source,  
+                  SourceMatrix& decode, 
+                  char* argv[]);
+
 #endif //UDM_NOMA_DL_CLST_TEQUALR_V4_HEADER_H

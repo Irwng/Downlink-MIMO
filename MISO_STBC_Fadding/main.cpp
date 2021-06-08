@@ -18,8 +18,8 @@ int main(){
 
     NormalIO();
 
-    for(int EbN0dB = minEbN0dB; EbN0dB <= maxEbN0dB; EbN0dB = EbN0dB + step){
-        ChannelInitialize(EbN0dB);
+    for(int snrdB = MinSNRdB; snrdB <= MaxSNRdB; snrdB = snrdB + Step){
+        ChannelInitialize(snrdB);
         
         for(int loop = 1; loop <= NLoop; loop++){
             BitSource(Source);
@@ -30,8 +30,8 @@ int main(){
         }
 
         BER = static_cast<double>(BER_TOTAL/(NLoop*Nt));
-        cout<<EbN0dB<<setw(20)<<BER<<endl;
-        outfile<<EbN0dB<<setw(20)<<BER<<endl;
+        cout<<snrdB<<setw(20)<<BER<<endl;
+        outfile<<snrdB<<setw(20)<<BER<<endl;
         cout<<"time(s): "<<time(NULL) - start<<endl;
     }
 

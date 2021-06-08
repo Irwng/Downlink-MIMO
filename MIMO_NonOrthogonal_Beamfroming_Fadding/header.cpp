@@ -7,8 +7,9 @@ double N_Var;
 double BER_TOTAL = 0;                               /* total number of error symbols */
 double BER = 0;                                     /* Bits Error Rate */
 double power;
-double PowerRate = 3;                               /* power allocation rate in beamforming matrix */
-double beta;  
+double PowerRate = 2;                               /* power allocation rate in beamforming matrix */
+double beta; 
+double sum = 0; 
 fstream outfile;
 
 SourceMatrix Source;                                /* source codewords */
@@ -42,8 +43,6 @@ void Initialize(ModuMatrix* masterConstell){
 #endif
 
 #ifndef MAP
-    cout<<"type in the PowerRate: "<<endl;
-    cin>>PowerRate;
     cout<<"PowerRate: "<<PowerRate<<endl;
     outfile<<"PowerRate: "<<PowerRate<<endl;
 #else
@@ -74,7 +73,7 @@ void ChannelInitialize(int snrdB){
     double snr = pow(10,(double)snrdB/10);
     power = 1.0;
     N_Var = power*Nt / snr;
-    
+    sum = 0.0;
     BER_TOTAL = 0;
     #ifdef DebugMode
         cout<<"N_Var: "<<N_Var<<endl;
@@ -128,9 +127,6 @@ void FadingChannel(CSIMatrix* h){
             }
         }
     }
-    #ifdef DebugMode
-        cout<<"h"<<endl<<h[0]<<endl;
-    #endif 
 }
 
 
@@ -146,27 +142,25 @@ ComplexD AWGN(double nvar){
 void Beamforming(ModuMatrix& modu, CSIMatrix* h, BFMatrix& w, 
                  SymAfterBFMatrix& symAfterBF, char* argv[]){
 
-#ifndef MAP
-    double sum = 0.0;
-    BFMatrix Denomiator_W;
+    double base = 0.0;
     
-    /* power allocation */
+    /* initialize of W */ 
     for(int nt = 0; nt < Nt; ++nt){
-        w(nt, 0) = ComplexD(1, 0);
-        w(nt, 1) = ComplexD(PowerRate * w(nt, 0).real(), 
-                            PowerRate * w(nt, 0).imag());
+        for(int nr = 0; nr < Nt; ++nr){
+            w(nt, nr) = ComplexD(pow(PowerRate, nr), 0);
+        }
     }
 
 #ifdef DebugMode
     cout<<"w before normalization: "<<endl<<w<<endl;
 #endif
 
+    BFMatrix Denomiator_W;
     Denomiator_W = w * (w.conjugate().transpose());
-    sum = 0;
-    for(int nt = 0; nt < Nt; ++nt){
-        sum += abs(Denomiator_W(nt,nt));
-    }
-    beta = sqrt(power/sum);
+    base = 0;
+    for(int nt = 0; nt < Nt; ++nt)
+        base += abs(Denomiator_W(nt,nt));
+    beta = sqrt(power/base);
     w *= beta;
 
 #ifdef DebugMode
@@ -183,10 +177,6 @@ void Beamforming(ModuMatrix& modu, CSIMatrix* h, BFMatrix& w,
         sum += pow(abs(symAfterBF(nt)), 2);
     }
     cout<<"weight of symAfterBF: "<<sum<<endl;
-#endif
-
-#else
-    symAfterBF = modu;
 #endif
 }
 
@@ -205,10 +195,11 @@ void Receiver(SymAfterBFMatrix& symAfterBF, SymAfterFCMatrix* symAfterFC, CSIMat
     for(int u = 0; u < U; ++u){
         symAfterFC[u] = h[u] * symAfterBF + tmp;// 
 
-    #ifndef MAP
         /* 1st step: processing the signal */
-        gamma = h[u](0)*w(0, 0) + h[u](1)*w(1, 0);
-        symAfterFC[u](0) = symAfterFC[u](0)/gamma;
+        ComplexD CSISum = p0;
+        for(int nt = 0; nt < Nt; ++nt)
+            CSISum += h[u](0, nt);
+        symAfterFC[u] /= (CSISum*beta);
     
         /* 2nd step: detect the signal with bigger power */
         symAfterPP[u](1) = symAfterFC[u](0) / PowerRate;
@@ -237,52 +228,53 @@ void Receiver(SymAfterBFMatrix& symAfterBF, SymAfterFCMatrix* symAfterFC, CSIMat
 
     #ifdef DebugMode
         if(u == 0){
+            cout<<"data for user0"<<endl;
             cout<<"origin SymAfterFC[0]"<<endl<<h[0] * symAfterBF<<endl;
-            cout<<"gamma"<<endl<<gamma<<endl;
-            cout<<"post processed SymAfterFC[0]"<<endl<<symAfterFC[0]<<endl;
+            cout<<"h[0]"<<endl<<h[0]<<endl;
+            cout<<"CSISum"<<endl<<CSISum<<endl;
+            cout<<"SymAfterFC[0] after post processing"<<endl<<symAfterFC[0]<<endl;
             cout<<"SymAfterPP[0]"<<endl<<symAfterPP[0]<<endl;
             cout<<"Decode[0]"<<endl<<decode[0]<<endl;
         }
     #endif
-
-    #else
-        SymAfterFCMatrix MasterConstellFixed[Mpoint];
-    	double d[Mpoint];                        /* Euclidean dist of each star point*/  
-        double MinDist = INT16_MAX;                    /* the minimum Euclidean dist */
-        int MinDistPoint = 0;                    /* the minimum Euclidean dist point */
-
-        for(int i = 0; i < Mpoint; ++i){                                     
-            MasterConstellFixed[i] = h[u] * masterConstell[i];
-            d[i] = 0;
-            for(int nr = 0; nr < Nr; ++nr){
-                d[i] += pow(abs(symAfterFC[u](nr) - MasterConstellFixed[i](nr)), 2);
-            }
-            if(d[i] < MinDist){
-                MinDist = d[i];
-                MinDistPoint = i;
-            }
-        }
-
-        /* completely correct */
-        bitset<Nt> bits(MinDistPoint);
-
-        for(int nt = 0; nt < Nt; ++nt){
-            decode[u](nt) = bits[nt];
-            BER_TOTAL += (decode[u](nt)!=source(nt));
-        }
-
-    #endif
-
-    #ifdef DebugMode
-        if(u == 0){
-            cout<<"origin SymAfterFC[0]"<<endl<<h[0] * symAfterBF<<endl;
-            cout<<"MasterConstellFixed"<<endl;
-            for(int i = 0; i < Mpoint; ++i) cout<<MasterConstellFixed[i]<<endl;
-            cout<<"MinDistPoint"<<endl<<MinDistPoint<<endl;
-            cout<<"bits"<<endl<<bits<<endl;
-            cout<<"decode[u]"<<endl<<decode[0]<<endl;
-        }
-    #endif
-
     }
 }
+
+
+// #else
+    //     SymAfterFCMatrix MasterConstellFixed[Mpoint];
+    // 	double d[Mpoint];                        /* Euclidean dist of each star point*/  
+    //     double MinDist = INT16_MAX;                    /* the minimum Euclidean dist */
+    //     int MinDistPoint = 0;                    /* the minimum Euclidean dist point */
+
+    //     for(int i = 0; i < Mpoint; ++i){                                     
+    //         MasterConstellFixed[i] = h[u] * masterConstell[i];
+    //         d[i] = 0;
+    //         for(int nr = 0; nr < Nr; ++nr){
+    //             d[i] += pow(abs(symAfterFC[u](nr) - MasterConstellFixed[i](nr)), 2);
+    //         }
+    //         if(d[i] < MinDist){
+    //             MinDist = d[i];
+    //             MinDistPoint = i;
+    //         }
+    //     }
+
+    //     /* completely correct */
+    //     bitset<Nt> bits(MinDistPoint);
+
+    //     for(int nt = 0; nt < Nt; ++nt){
+    //         decode[u](nt) = bits[nt];
+    //         BER_TOTAL += (decode[u](nt)!=source(nt));
+    //     }
+    // #ifdef DebugMode
+    //     if(u == 0){
+    //         cout<<"origin SymAfterFC[0]"<<endl<<h[0] * symAfterBF<<endl;
+    //         cout<<"MasterConstellFixed"<<endl;
+    //         for(int i = 0; i < Mpoint; ++i) cout<<MasterConstellFixed[i]<<endl;
+    //         cout<<"MinDistPoint"<<endl<<MinDistPoint<<endl;
+    //         cout<<"bits"<<endl<<bits<<endl;
+    //         cout<<"decode[u]"<<endl<<decode[0]<<endl;
+    //     }
+    // #endif
+
+    // #endif

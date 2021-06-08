@@ -4,13 +4,14 @@ Description: include the basic functions of transmitter & recevier & channels
 ***********************************************************/
 #include "header.h"
 
-double N_Var = 0;                                       /* variance of Noise */
+double N_Var = 0;                                   /* variance of Noise */
 double BER_TOTAL = 0;                               /* total number of error symbols */
 double BER = 0;
 
-SourceMatrix Source;                         /* source codewords */
-ModuMatrix Modu;                             /* symbols after modulation */
-CSIMatrix H;                                 /* channel parameters , U*Nt*Nr */
+SourceMatrix Source;                                /* source codewords */
+ModuMatrix Modu;                                    /* symbols after modulation */
+CSIMatrix H;                                        /* channel parameters , U*Nt*Nr */
+SymAfterFCMatrix SymAfterFC;
 ModuMatrix Constell[Mpoint];
 SymAfterFCMatrix ConstellFixed[Mpoint];
 SourceMatrix Decode;  
@@ -35,30 +36,27 @@ void NormalIO(){
     cout<<"FaddingChannel"<<endl;
     outfile<<"FaddingChannel"<<endl;
 
-    cout<<"EbN0dB"<<setw(15)<<"BER"<<endl;
-    outfile<<"EbN0dB"<<setw(15)<<"BER"<<endl;
+    cout<<"snrdB"<<setw(15)<<"BER"<<endl;
+    outfile<<"snrdB"<<setw(15)<<"BER"<<endl;
 }
 
 
 void InitMapMatrix(){
 
     /* initialize the Masterconstellation by bitset */
-    for(int i = 0; i < Mpoint; i++){
-        bitset<Nt> bit(i);
+    for(int mpoint = 0; mpoint < Mpoint; ++mpoint){
+        bitset<Nt> bit(mpoint);
         for(int nt = 0; nt < Nt; ++nt){
-            Constell[i](nt) = ComplexD(static_cast<double>(2 * bit[nt] - 1), 0);
+            Constell[mpoint](nt) = ComplexD(static_cast<double>(2 * bit[nt] - 1), 0);
         } 
     }  
 }
 
 /* key point */
-void ChannelInitialize(int ebN0dB){
+void ChannelInitialize(int snrdB){
 
-    double ebN0 = pow(10, (double)ebN0dB/10);
-    double EsN0 = 1 * ebN0;
-    double N0 = power * Nt / EsN0;
-    // double N0 = power / (EsN0*Nt);
-    N_Var = N0/2;
+    double snr = pow(10, (double)snrdB/10);
+    N_Var = power * Nt / snr;
     BER_TOTAL = 0;
 
     #ifdef DebugMode
@@ -84,8 +82,8 @@ void BitSource(SourceMatrix& source){
 void Modulation(SourceMatrix& source, ModuMatrix& modu){
 
     /* BPSK: 0->-1, 1->1 */
-    for(int i = 0; i < Nt; i++){
-        modu(i) = sqrt(1.0/static_cast<double>(Nt)) * ComplexD(2*source(i)-1, 0);
+    for(int nt = 0; nt < Nt; ++nt){
+        modu(nt) = ComplexD(2*source(nt)-1, 0);
     }
 
     #ifdef DebugMode
@@ -108,7 +106,7 @@ void FadingChannel(CSIMatrix& h){
             double GG = sqrt(-2*log(randN() + 0.000000001));
             double B = randN();
             h(nr, nt) = ComplexD(sqrt(0.5) * GG * cos(2*PI*B),
-                            sqrt(0.5) * GG * sin(2*PI*B));
+                                 sqrt(0.5) * GG * sin(2*PI*B));
         }
     }
     #ifdef DebugMode
@@ -122,23 +120,23 @@ ComplexD AWGN(double nvar){
 
     double GG = sqrt(-2*log(randN() + 0.000000001));
     double B = randN();
-    ComplexD GuassN(sqrt(nvar)* GG * cos(2*PI*B), sqrt(nvar)* GG * sin(2*PI*B));
+    ComplexD GuassN(sqrt(nvar/2)* GG * cos(2*PI*B), sqrt(nvar/2)* GG * sin(2*PI*B));
     return GuassN;
 }
 
 
-void Receiver(ModuMatrix& modu, CSIMatrix& h, ModuMatrix* constell,
+void Receiver(SymAfterFCMatrix& symAfterFC, ModuMatrix& modu, 
+              CSIMatrix& h, ModuMatrix* constell,
               SourceMatrix& source,  SourceMatrix& decode){
 
-    /*** Fadding channel ***/
     /* AWGN */
     SymAfterFCMatrix tmp;
     for(int nr = 0; nr < Nr; nr++){
         tmp(nr) = AWGN(N_Var);
     }
 
-    SymAfterFCMatrix symAfterFC;
-    symAfterFC =sqrt(static_cast<double>(Nt))*(h * modu + tmp);//
+    /*** Fadding channel ***/
+    symAfterFC = h * modu + tmp;//
 
     /*** adjust the master-constellation ***/
     for(int point = 0; point < Mpoint; ++point){
@@ -156,7 +154,7 @@ void Receiver(ModuMatrix& modu, CSIMatrix& h, ModuMatrix* constell,
     double minDist = INT16_MAX;
     int minDistPoint = 0;
     double tmpMinDist = 0;
-
+    // find the minimum Euclidean distance
     for(int point = 0; point < Mpoint; ++point){
         tmpMinDist = 0;
         SymAfterFCMatrix tmpMinus = symAfterFC - ConstellFixed[point];

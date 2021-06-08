@@ -42,16 +42,16 @@ constexpr int Nr = 1;                             /* number of antennas at recev
 constexpr int Mod = 2;				              /* BPSK modulation order */
 constexpr double PI = 3.141592653589793;
     
-constexpr int minEbN0dB = 0;
+constexpr int MinSNRdB = 0;
 #ifdef DebugMode
     constexpr long NLoop = pow(10, 0);            /* number of simulation loops  */
-    constexpr int maxEbN0dB = minEbN0dB;
+    constexpr int MaxSNRdB = MinSNRdB;
 #else
     constexpr long NLoop = pow(10, 7);            /* number of simulation loops  */
-    constexpr long maxEbN0dB = 30;           
+    constexpr long MaxSNRdB = 30;           
 #endif
 
-constexpr int step = 3;
+constexpr int Step = 3;
 
 /***********************************************************
  * basic type defination and golbal variables in matrix type

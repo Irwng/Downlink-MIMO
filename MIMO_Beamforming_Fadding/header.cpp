@@ -87,8 +87,7 @@ void ChannelInitialize(int snrdB){
     /* the total power of transmitter is fixed */
     double snr = pow(10,(double)snrdB/10);
     power = 1.0;
-    N_Var = 1.0 / snr;
-    
+    N_Var = power*Nt / snr;
     for(int nt = 0; nt < Nt; ++nt){
         for(int nr = 0; nr < Nt; ++nr){
             WeightedIdentityMatrix(nr, nt) = ComplexD(0, 0);
@@ -96,7 +95,7 @@ void ChannelInitialize(int snrdB){
     }
 
     for(int nt = 0; nt < Nt; ++nt){
-        WeightedIdentityMatrix(nt, nt) = ComplexD(N_Var*Nt, 0);
+        WeightedIdentityMatrix(nt, nt) = ComplexD(N_Var*U*Nr, 0);
     }
     
     for(int nt = 0; nt < Nt; ++nt){
@@ -104,6 +103,7 @@ void ChannelInitialize(int snrdB){
             qrA(nt, nr) = ComplexD(0, 0);
         }
     }
+    
     BER_TOTAL = 0;
     #ifdef DebugMode
         cout<<"N_Var: "<<N_Var<<endl;

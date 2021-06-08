@@ -31,53 +31,61 @@ typedef complex<double> ComplexD;
 // #define DebugMode
 #define MonteCarlo
 
-/* channel */
-// #define FaddingChannel
-#define AWGNMode
-
 /**********************************
  * basic constant model parameters
  **********************************/
 
-constexpr int Nt = 4;                             /* number of antennas at transmitter */
+constexpr double power = 1;
+constexpr int M = 1;                              /* Number of time slots resources */
+constexpr int Nt = 2;                             /* number of antennas at transmitter */
 constexpr int Nr = 1;                             /* number of antennas at recevier */
 constexpr int Mod = 2;				              /* BPSK modulation order */
-constexpr int Mpoint = pow(Mod, Nt);
 constexpr double PI = 3.141592653589793;
-constexpr double power = 1;
     
 constexpr int MinSNRdB = 0;
 #ifdef DebugMode
-    constexpr long NLoop = pow(10, 0);            /* number of simulation loops  */
+    constexpr long NLoop = pow(10, 1);            /* number of simulation loops  */
     constexpr int MaxSNRdB = MinSNRdB;
 #else
-    constexpr long NLoop = pow(10, 7);            /* number of simulation loops  */
+    constexpr long NLoop = pow(10, 6);            /* number of simulation loops  */
     constexpr long MaxSNRdB = 30;           
 #endif
+
 constexpr int Step = 3;
 
 /***********************************************************
  * basic type defination and golbal variables in matrix type
  ***********************************************************/
 
-/* source codewords, 1*LenBit*/
-typedef Matrix<int, Nt, 1> SourceMatrix;
+/* source codewords, 1*M */
+typedef Matrix<int, 1, M> SourceMatrix;
 extern SourceMatrix Source;
 extern SourceMatrix Decode;
 
-/* symbols after modulation, Nt*1  */
-typedef Matrix<ComplexD, Nt, 1> ModuMatrix;
+/* symbols after modulation, 1*M */
+typedef Matrix<ComplexD, 1, M> ModuMatrix;
 extern ModuMatrix Modu;
-extern ModuMatrix Constell[Mpoint];
+
+/* symbols after Alamouti-ST, Nt*M  */
+typedef Matrix<ComplexD, Nt, M> STMatrix;
+extern STMatrix SymAfterST;
 
 /* channel parameters , Nr*Nt */
 typedef Matrix<ComplexD, Nr, Nt> CSIMatrix;
 extern CSIMatrix H;
 
-/* signals after fadding channal, Nr*1 */
-typedef Matrix<ComplexD, Nr, 1> SymAfterFCMatrix;
+/* signals after fadding channal, Nr*M */
+typedef Matrix<ComplexD, Nr, M> SymAfterFCMatrix;
 extern SymAfterFCMatrix SymAfterFC;
-extern SymAfterFCMatrix ConstellFixed[Mpoint];
+
+/* signals after post processing, Nr*M */
+/* After the post processing, the dimensionality of the signal matrix turns to Nt*M */
+typedef Matrix<ComplexD, 1, M> SymAfterPPMatrix; 
+extern SymAfterPPMatrix SymAfterPP;
+
+/* signals after MAP, 1*M */
+typedef Matrix<double, 1, M> SymAfterMAPMatrix;
+extern SymAfterMAPMatrix SymAfterMAP;
 
 /*************************************
  * basic global variable declaration
@@ -97,8 +105,6 @@ extern fstream outfile;
  * date: 2020/12/16
  ***************************************/
 void NormalIO();
-void InitMapMatrix();
-
 
 /**************************************
  * description: add AAWGN noise
@@ -146,6 +152,15 @@ void Modulation(SourceMatrix& source, ModuMatrix& modu);
 
 
 /**************************************
+ * description: Alamouti
+ * date: 2021/3/16
+ * input parameters: ModuMatrix& modu
+ * output parameters: STMatrix& st
+ ***************************************/
+void Diversity(ModuMatrix& modu, STMatrix& st);
+
+
+/**************************************
  * description: flat-fading channel
  * date: 2020/8/16
  * input parameters: transmitting signals
@@ -160,10 +175,10 @@ void FadingChannel(CSIMatrix& h);
  * input parameters: SymAfterBFMatrix* symafterbf
  * output parameters: SymAfterPPMatrix symAfterPP[Nj][U]
  ***************************************/
-void Receiver(SymAfterFCMatrix& symAfterFC,
-              ModuMatrix& modu, 
+void Receiver(STMatrix& symAfterST,
+              SymAfterFCMatrix& symAfterFC, 
               CSIMatrix& h,
-              ModuMatrix* constell,
+              SymAfterPPMatrix& symAfterPP,
               SourceMatrix& source,  
               SourceMatrix& decode);
 

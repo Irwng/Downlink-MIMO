@@ -32,7 +32,7 @@ typedef complex<double> ComplexD;
 
 /* basic model parameters */ 
 
-constexpr int U = 4;                              /* Number of users */
+constexpr int U = 10;                              /* Number of users */
 constexpr int Nr = 1;                             /* number of antennas at recevier */
 constexpr int Nt = U*Nr;                          /* number of antennas at transmitter */    
 constexpr int LenBit = Nt;                        /* number of bits of all users */
@@ -64,6 +64,7 @@ extern double power;
 extern double belta;
 extern double alpha;
 extern double alphasum;
+extern double Sum;
 extern fstream outfile;
 
 /* source codewords, Nt*1 */

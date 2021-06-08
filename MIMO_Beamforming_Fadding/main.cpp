@@ -43,6 +43,7 @@ int main(int argc, char* argv[]){
             if(loop == NLoop) cout<<endl;
         }
         BER = static_cast<double>(BER_TOTAL/NUM);
+
         cout<<snrdB<<setw(20)<<BER<<endl;
         outfile<<snrdB<<setw(20)<<BER<<endl;
     }
